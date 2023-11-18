@@ -1,19 +1,26 @@
 import java.util.*;
-import java.util.concurrent.*;
 
 public class Main {
 
     //public static int maxSize = 0;
 
-    public static void main(String[] args) throws InterruptedException, ExecutionException {
+    public static void main(String[] args) throws InterruptedException {
+
+        ThreadGroup mainGroup = new ThreadGroup("main group");
+
+        String[] texts = new String[25];
+
+        for (int i = 0; i < texts.length; i++) {
+            texts[i] = generateText("aab", 30_000);
+        }
 
         long startTs = System.currentTimeMillis(); // start time
 
-        Callable<Integer> callableOfMaxSize = new Callable<Integer>() {
-            @Override
-            public Integer call() throws Exception {
+        List<Thread> threads = new ArrayList<>();
+        for (String text : texts) {
+
+            Thread bigThread = new Thread(mainGroup, () -> {
                 int maxSize = 0;
-                String text = generateText("aab", 30_000);
                 for (int i = 0; i < text.length(); i++) {
                     for (int j = 0; j < text.length(); j++) {
                         if (i >= j) {
@@ -32,26 +39,48 @@ public class Main {
                     }
                 }
                 System.out.println(text.substring(0, 100) + " -> " + maxSize);
-                return maxSize;
-            }
-        };
-        int maxNumberOfMaxSize = 0;
-        final ExecutorService threadPool = Executors.newFixedThreadPool(25);
-        for (int i = 0; i < 26; i++) {
-            final Future<Integer> task = threadPool.submit(callableOfMaxSize);
-            final Integer resultOfTask = task.get();
-            if(resultOfTask > maxNumberOfMaxSize){
-                maxNumberOfMaxSize = resultOfTask;
+
+            });
+            bigThread.start();
+            threads.add(bigThread);
+
+
+        }
+        // + Дьячко почему join даёт абсолютно всем потокам запуститься?
+        //for (Thread thread : threads) {
+        //    thread.join(); // зависаем, ждём когда поток объект которого лежит в thread завершится
+        //}
+
+        // + Дьячко можно ли заставить поток-демона в завершении работы процесса замерить время?
+//        Thread daemon = new Thread(() -> {
+//            while (true) {
+//                if (!this.isAlive()) {
+//                    long endTs = System.currentTimeMillis(); // end time
+//
+//                    System.out.println("Time: " + (endTs - startTs) + "ms");
+//                }
+//            }
+//        });
+//        daemon.setDaemon(true);
+//        daemon.start();
+//        if(!daemon.isAlive()) {
+//            long endTs = System.currentTimeMillis(); // end time
+//
+//            System.out.println("Time: " + (endTs - startTs) + "ms");
+//        }
+
+
+        // + Дьячко этот вариант хуже чем join
+        while (true){
+            if (mainGroup.activeCount() == 0) {
+                long endTs = System.currentTimeMillis(); // end time
+
+                System.out.println("Time: " + (endTs - startTs) + "ms");
+                break;
             }
         }
 
-        System.out.println(maxNumberOfMaxSize + " maximum of not interrupted 'a'");
 
-        long endTs = System.currentTimeMillis(); // end time
-
-        System.out.println("Time: " + (endTs - startTs) + "ms");
-
-        threadPool.shutdown();
 
     }
 
@@ -64,5 +93,3 @@ public class Main {
         return text.toString();
     }
 }
-
-//
